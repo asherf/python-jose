@@ -1,9 +1,5 @@
-from __future__ import division
-
 import math
 import warnings
-
-import six
 
 from .base import Key
 from ..utils import base64_to_long, long_to_base64, base64url_decode, base64url_encode
@@ -20,7 +16,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, aead, mod
 from cryptography.hazmat.primitives.keywrap import aes_key_wrap, aes_key_unwrap, InvalidUnwrap
 from cryptography.hazmat.primitives.padding import PKCS7
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_pem_public_key
-from cryptography.utils import int_from_bytes, int_to_bytes
+from cryptography.utils import int_to_bytes
 from cryptography.x509 import load_pem_x509_certificate
 
 _binding = None
@@ -79,10 +75,10 @@ class CryptographyECKey(Key):
             self.prepared_key = self._process_jwk(key)
             return
 
-        if isinstance(key, six.string_types):
+        if isinstance(key, str):
             key = key.encode('utf-8')
 
-        if isinstance(key, six.binary_type):
+        if isinstance(key, bytes):
             # Attempt to load key. We don't know if it's
             # a Public Key or a Private Key, so we try
             # the Public Key first.
@@ -145,8 +141,8 @@ class CryptographyECKey(Key):
 
         r_bytes = raw_signature[:component_length]
         s_bytes = raw_signature[component_length:]
-        r = int_from_bytes(r_bytes, "big")
-        s = int_from_bytes(s_bytes, "big")
+        r = int.from_bytes(r_bytes, byteorder="big")
+        s = int.from_bytes(s_bytes, byteorder="big")
         return encode_dss_signature(r, s)
 
     def sign(self, msg):
@@ -258,10 +254,10 @@ class CryptographyRSAKey(Key):
             self.prepared_key = self._process_jwk(key)
             return
 
-        if isinstance(key, six.string_types):
+        if isinstance(key, str):
             key = key.encode('utf-8')
 
-        if isinstance(key, six.binary_type):
+        if isinstance(key, bytes):
             try:
                 if key.startswith(b'-----BEGIN CERTIFICATE-----'):
                     self._process_cert(key)
@@ -489,7 +485,8 @@ class CryptographyAESKey(Key):
         return data
 
     def encrypt(self, plain_text, aad=None):
-        plain_text = six.ensure_binary(plain_text)
+        if isinstance(plain_text, str):
+            plain_text = plain_text.encode()
         try:
             iv = get_random_bytes(algorithms.AES.block_size//8)
             mode = self._mode(iv)
@@ -512,9 +509,11 @@ class CryptographyAESKey(Key):
             raise JWEError(e)
 
     def decrypt(self, cipher_text, iv=None, aad=None, tag=None):
-        cipher_text = six.ensure_binary(cipher_text)
+        if isinstance(cipher_text, str):
+            cipher_text = cipher_text.encode()
         try:
-            iv = six.ensure_binary(iv)
+            if isinstance(iv, str):
+                iv = iv.encode()
             mode = self._mode(iv)
             if mode.name == "GCM":
                 if tag is None:
@@ -540,12 +539,14 @@ class CryptographyAESKey(Key):
             raise JWEError(e)
 
     def wrap_key(self, key_data):
-        key_data = six.ensure_binary(key_data)
+        if isinstance(key_data, str):
+            key_data = key_data.encode()
         cipher_text = aes_key_wrap(self._key, key_data, default_backend())
         return cipher_text  # IV, cipher text, auth tag
 
     def unwrap_key(self, wrapped_key):
-        wrapped_key = six.ensure_binary(wrapped_key)
+        if isinstance(wrapped_key, str):
+            wrapped_key = wrapped_key.encode()
         try:
             plain_text = aes_key_unwrap(self._key, wrapped_key, default_backend())
         except InvalidUnwrap as cause:
@@ -575,10 +576,10 @@ class CryptographyHMACKey(Key):
             self.prepared_key = self._process_jwk(key)
             return
 
-        if not isinstance(key, six.string_types) and not isinstance(key, bytes):
+        if not isinstance(key, str) and not isinstance(key, bytes):
             raise JWKError('Expecting a string- or bytes-formatted key.')
 
-        if isinstance(key, six.text_type):
+        if isinstance(key, str):
             key = key.encode('utf-8')
 
         invalid_strings = [
@@ -614,15 +615,18 @@ class CryptographyHMACKey(Key):
         }
 
     def sign(self, msg):
-        msg = six.ensure_binary(msg)
+        if isinstance(msg, str):
+            msg = msg.encode()
         h = hmac.HMAC(self.prepared_key, self._hash_alg, backend=default_backend())
         h.update(msg)
         signature = h.finalize()
         return signature
 
     def verify(self, msg, sig):
-        msg = six.ensure_binary(msg)
-        sig = six.ensure_binary(sig)
+        if isinstance(msg, str):
+            msg = msg.encode()
+        if isinstance(sig, str):
+            sig = sig.encode()
         h = hmac.HMAC(self.prepared_key, self._hash_alg, backend=default_backend())
         h.update(msg)
         try:

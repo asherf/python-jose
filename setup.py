@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 import os
-import platform
 
 import jose  # noqa: F401
 
@@ -23,18 +21,9 @@ def get_packages(package):
     ]
 
 
-def _cryptography_version():
-    # pyca/cryptography dropped support for PyPy < 5.4 in 2.5
-    # https://cryptography.io/en/latest/changelog/#v2-5
-    if platform.python_implementation() == 'PyPy' and platform.python_version() < '5.4':
-        return 'cryptography < 2.5'
-
-    return 'cryptography'
-
-
 pyasn1 = ['pyasn1']
 extras_require = {
-    'cryptography': [_cryptography_version()],
+    'cryptography': ['cryptography>=3.4.0'],
     'pycrypto': ['pycrypto >=2.6.0, <2.7.0'] + pyasn1,
     'pycryptodome': ['pycryptodome >=3.3.1, <4.0.0'] + pyasn1,
 }
